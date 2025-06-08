@@ -1,4 +1,7 @@
 import express, { request } from 'express';
+import { query, validationResult } from 'express-validator'; // import query from express-validator to validate query parameters
+// functions imported are used as middleware to validate the request data
+// express-validator is a middleware for validating data in express.js
 const app = express();
 //middleware for post req
 app.use(express.json())
@@ -84,7 +87,20 @@ const PORT = process.env.PORT || 3000;
 // url 3
 // url 4
 
-    app.get('/api/users', (request, response) => {
+    app.get('/api/users', query('filter').
+    isString()
+    .notEmpty()
+    .isLength({ min: 3, max: 10 }),
+     (request, response) => {
+        // these functions do not throw errors, they just validate the data we have to manage the errors ourselves
+        //console.log(request); // request object contains the query parameters
+
+
+        // validationResult is a function that returns the result of the validation
+        // when we pass a ?filter and value query parameter, it will validate the data
+        // if the data is valid, it will return an empty array.
+        const result = validationResult(request);
+        console.log(result);
         console.log(request.query);
         const{ query: { filter, value },
         } = request;
@@ -245,3 +261,8 @@ app.listen(PORT, () => {
 
 //Validation: checking if the data is valid before processing it
 // we can use middleware to validate the data before processing it.
+
+// express-validator: a middleware for validating data in express.js
+// https://express-validator.github.io/docs/
+
+//npm i express-validator
