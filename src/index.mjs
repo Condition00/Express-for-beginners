@@ -117,16 +117,27 @@ const PORT = process.env.PORT || 3000;
         return response.send(newUser).status(201);
     });
 
-    app.get('/api/users/:id', (request, response) => {
-    const parsedId = parseInt(request.params.id);
-    console.log(parsedId);
-    if(isNaN(parsedId))
-        return response.status(400).send({msg: "Invalid user ID, Bad Request"});
+    // app.get('/api/users/:id', (request, response) => {
+    // const parsedId = parseInt(request.params.id);
+    // console.log(parsedId);
+    // if(isNaN(parsedId))
+    //     return response.status(400).send({msg: "Invalid user ID, Bad Request"});
 
-    const findUser = mockUsers.find(user => user.id === parsedId);
-    if(!findUser)
+    // const findUser = mockUsers.find(user => user.id === parsedId);
+    // if(!findUser)
+    //     return response.status(404).send({msg: "User not found"});
+    // response.send(findUser);
+    // });
+
+    app.get('/api/users/:id', resolveIndexById, (request, response) => {
+    const {findUser} = request; // destructure findUser from request object
+    const findUserIndex = mockUsers[findUser]; // findUser is the index of the user in the mockUsers array
+    if(!findUserIndex)
+        // if the user is not found, we can return a 404 error
+        // used resolveIndexById middleware to find the user by id
         return response.status(404).send({msg: "User not found"});
-    response.send(findUser);
+    response.send(findUserIndex);
+    // we can use findUserIndex to get the user from the mockUsers array
     });
 
     app.get('/api/products', (request, response) => {
@@ -180,18 +191,24 @@ const PORT = process.env.PORT || 3000;
     });
 
     //delete requests
-    app.delete('/api/users/:id', (request, response) => {
-        const {params: {id}} = request;
-        const parsedId = parseInt(id); // parseInt converts the string to a number
-
-        if(isNaN(parsedId))
-            return response.status(400).send({msg: "Invalid user ID, Bad Request"});
-        const findUser = mockUsers.findIndex(user => user.id === parsedId);
-        if(findUser === -1) // if the user is not found (-1)
-            return response.status(404).send({msg: "User not found"});
+    app.delete('/api/users/:id', resolveIndexById, (request, response) => {
+        const {findUser} = request;
         mockUsers.splice(findUser, 1); // remove the user from the array
         return response.status(204).send(); // no content
     });
+
+    // app.delete('/api/users/:id', resolveIndexById, (request, response) => {
+    //     const {params: {id}} = request;
+    //     const parsedId = parseInt(id); // parseInt converts the string to a number
+
+    //     if(isNaN(parsedId))
+    //         return response.status(400).send({msg: "Invalid user ID, Bad Request"});
+    //     const findUser = mockUsers.findIndex(user => user.id === parsedId);
+    //     if(findUser === -1) // if the user is not found (-1)
+    //         return response.status(404).send({msg: "User not found"});
+    //     mockUsers.splice(findUser, 1); // remove the user from the array
+    //     return response.status(204).send(); // no content
+    // });
 
 //Query Parameters:
 
