@@ -159,16 +159,21 @@ const PORT = process.env.PORT || 3000;
         return response.status(200).send(mockUsers[findUser]);
     });
 
-    //patch requests => partially updates data
-    app.patch('/api/users/:id', (request, response) => {
-        const {body, params: {id}} = request;
-        const parsedId = parseInt(id);
+    //first the global middleware will be called, then the resolveIndexById middleware will be called
+    // then the route handler will be called
+    // we can use the resolveIndexById middleware for all put and patch requests
 
-        if(isNaN(parsedId))
-            return response.status(400).send({msg: "Invalid user ID, Bad Request"});
-        const findUser = mockUsers.findIndex(user => user.id === parsedId);
-        if(findUser === -1) // if the user is not found (-1)
-            return response.status(404).send({msg: "User not found"});
+
+    //patch requests => partially updates data
+    app.patch('/api/users/:id', resolveIndexById, (request, response) => {
+        const {body, findUser} = request;
+        // const parsedId = parseInt(id);
+
+        // if(isNaN(parsedId))
+        //     return response.status(400).send({msg: "Invalid user ID, Bad Request"});
+        // const findUser = mockUsers.findIndex(user => user.id === parsedId);
+        // if(findUser === -1) // if the user is not found (-1)
+        //     return response.status(404).send({msg: "User not found"});
         // update the user with the new data, only the fields that are provided in the request
         mockUsers[findUser] = { ...mockUsers[findUser], ...body};
         return response.status(200).send(mockUsers[findUser]);
