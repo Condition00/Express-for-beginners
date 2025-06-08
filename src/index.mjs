@@ -13,7 +13,9 @@ const loggingMiddleware = (request, response, next) => {
 // since the logic for put patch and delete is the same for all routes, we can use the middleware for all routes
 
 const resolveIndexById = (request, response, next) => {
-    const {body, params: {id}} = request;
+    //removed body from the request because we are not using it in this middleware
+    // const {body} = request; // we can use body if we want to validate the body in the middleware
+    const {params: {id}} = request;
         const parsedId = parseInt(id);
 
         if(isNaN(parsedId))
@@ -21,6 +23,9 @@ const resolveIndexById = (request, response, next) => {
         const findUser = mockUsers.findIndex(user => user.id === parsedId);
         if(findUser === -1) // if the user is not found (-1)
             return response.status(404).send({msg: "User not found"});
+        request.findUser = findUser; // add the index of the user to the request object
+        // now we can use this index in the route handler
+        next(); // call the next middleware or route handler
 };
 
 //app.use(loggingMiddleware); // use the middleware for all routes globaly
@@ -132,15 +137,24 @@ const PORT = process.env.PORT || 3000;
 
     //put requests => updates data entirely
 
-    app.put('/api/users/:id', (request, response) => {
-        const {body, params: {id}} = request;
-        const parsedId = parseInt(id);
 
-        if(isNaN(parsedId))
-            return response.status(400).send({msg: "Invalid user ID, Bad Request"});
-        const findUser = mockUsers.findIndex(user => user.id === parsedId);
-        if(findUser === -1) // if the user is not found (-1)
-            return response.status(404).send({msg: "User not found"});
+    // now we can use the resolveIndexById middleware to find the user by id
+    app.put('/api/users/:id', resolveIndexById, (request, response) => {
+        const {body, findUser} = request;
+        //because we attached findUser to the request object in the resolveIndexById middleware
+        // we can now use it in the route handler
+        //destructure findUser from request object
+        // findUser is the index of the user in the mockUsers array
+
+
+        // removed params from the request because we already did the parsing in the middleware
+        // const parsedId = parseInt(id);
+
+        // if(isNaN(parsedId))
+        //     return response.status(400).send({msg: "Invalid user ID, Bad Request"});
+        // const findUser = mockUsers.findIndex(user => user.id === parsedId);
+        // if(findUser === -1) // if the user is not found (-1)
+        //     return response.status(404).send({msg: "User not found"});
         mockUsers[findUser] = { id: parsedId, ...body}; // update the user with the new data
         return response.status(200).send(mockUsers[findUser]);
     });
