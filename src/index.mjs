@@ -1,10 +1,13 @@
 import express, { request } from 'express';
-import { query, validationResult } from 'express-validator'; // import query from express-validator to validate query parameters
+// body function is used to validate the body of the request
+import { query, validationResult, body, matchedData, checkSchema, check } from 'express-validator'; // import query from express-validator to validate query parameters
 // functions imported are used as middleware to validate the request data
 // express-validator is a middleware for validating data in express.js
 const app = express();
 //middleware for post req
 app.use(express.json())
+
+import {createUserValidationSchema} from '../utils/validationSchemas.mjs'; // import the validation schemas from the utils folder
 
 //middleware must be registered before the routes
 //middleware is a function that has access to the request, response and next function
@@ -90,7 +93,10 @@ const PORT = process.env.PORT || 3000;
     app.get('/api/users', query('filter').
     isString()
     .notEmpty()
-    .isLength({ min: 3, max: 10 }),
+    .withMessage('Filter must be a non-empty string')
+    .isLength({ min: 3, max: 10 })
+    .withMessage('Filter must be a string with length between 3 and 10 characters'),
+
      (request, response) => {
         // these functions do not throw errors, they just validate the data we have to manage the errors ourselves
         //console.log(request); // request object contains the query parameters
@@ -123,15 +129,55 @@ const PORT = process.env.PORT || 3000;
 
     //post requests: http requests that send data to the server
     //right before post we have to have a middleware that parses the json
-    app.post('/api/users', (request, response) => {
+    app.post('/api/users',
+        // putting both in an array
+        // [ body('name').notEmpty().withMessage('Name is required').isLength({ min: 5, max: 30 }).withMessage('Name must be a string with length between 5 and 30 characters').isString().withMessage('Name must be a string'),
+
+        // body('displayName').notEmpty().withMessage('Display Name is required').isLength({ min: 3, max: 20 }).withMessage('Display Name must be a string with length between 3 and 20 characters').isString().withMessage('Display Name must be a string'), ],
+
+        // we can use schemas to replace this lengthy validation
+
+
+
+    // we can use schemas to replace this lengthy validation ---> [ new file ]
+
+     checkSchema(createUserValidationSchema),
+     (request, response) => {
         console.log(request.body);
+        // request.body contains the data sent in the request body
         //destructure body from request object
-        const {body} = request;
+
+
+        // validation
+        const result = validationResult(request);
+        console.log(result);
+        // we can check if there are any validation errors
+        //.isEmpty() checks if the result is empty
+        if (!result.isEmpty()) return response.status(400).send({
+            errors: result.array() // return the errors as an array
+        });
+
+        // we have to save the user to the database
+        // since we are using a mock database, we will just push the user to the array
+
+        const data = matchedData(request); // get the validated data from the request
+       // console.log(data); // data contains the validated data
+
+        // data is recommended to be used instead of request.body because it contains only the validated data
+
+        // if we use request.body, it will contain all the data sent in the request body, even the invalid data
+            // const {body} = request;
+            // //dbs are responsible for the ids but since we dont have one yet we will take the last id and add 1 to it.
+            // const newUser = {id: mockUsers[mockUsers.length - 1].id + 1, ...body};//spreader operator
+            // mockUsers.push(newUser)
+            // return response.send(newUser).status(201);
+
         //dbs are responsible for the ids but since we dont have one yet we will take the last id and add 1 to it.
-        const newUser = {id: mockUsers[mockUsers.length - 1].id + 1, ...body};//spreader operator
+        const newUser = {id: mockUsers[mockUsers.length - 1].id + 1, ...data};//spreader operator
         mockUsers.push(newUser)
         return response.send(newUser).status(201);
     });
+    // we can do this to any request that takes a request body
 
     // app.get('/api/users/:id', (request, response) => {
     // const parsedId = parseInt(request.params.id);
@@ -266,3 +312,8 @@ app.listen(PORT, () => {
 // https://express-validator.github.io/docs/
 
 //npm i express-validator
+
+
+
+
+// ROUTERS IN EXPRESS: reusable pieces of code that can be used to handle routes
