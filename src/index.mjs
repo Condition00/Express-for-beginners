@@ -240,3 +240,8 @@ app.listen(PORT, () => {
 //middleware: functions that run before the request reaches the route handler
 // they can modify the request, response or end the request
 // they can be used for logging, authentication, error handling, etc.
+
+
+
+//Validation: checking if the data is valid before processing it
+// we can use middleware to validate the data before processing it.
