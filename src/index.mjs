@@ -155,7 +155,7 @@ const PORT = process.env.PORT || 3000;
         // const findUser = mockUsers.findIndex(user => user.id === parsedId);
         // if(findUser === -1) // if the user is not found (-1)
         //     return response.status(404).send({msg: "User not found"});
-        mockUsers[findUser] = { id: parsedId, ...body}; // update the user with the new data
+        mockUsers[findUser] = { id: mockUsers[findUser].id, ...body}; // update the user with the new data
         return response.status(200).send(mockUsers[findUser]);
     });
 
