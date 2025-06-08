@@ -20,12 +20,12 @@ This repository contains code and examples for learning [Express.js](https://exp
 
 2. **Install dependencies:**
     ```bash
-    npm install
+     npm i / npm install
     ```
 
 3. **Run the server:**
     ```bash
-    npm start
+    npm run start:dev
     ```
 
 ## Folder Structure
