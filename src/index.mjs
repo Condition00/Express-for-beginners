@@ -9,6 +9,12 @@ app.use(express.json())
 
 import {createUserValidationSchema} from '../utils/validationSchemas.mjs'; // import the validation schemas from the utils folder
 
+// import router
+
+import usersRouter from './routes/users.mjs'; // import the users router
+
+app.use(usersRouter); // use the users router for all routes that start with /api/users
+
 //middleware must be registered before the routes
 //middleware is a function that has access to the request, response and next function
 const loggingMiddleware = (request, response, next) => {
@@ -43,18 +49,9 @@ const PORT = process.env.PORT || 3000;
 //localhost:3000/products
 
 //Get Requests:
-    const mockUsers = [
-        {id: 1, name: 'John Doe', displayName: 'John'},
-        {id: 2, name: 'Jane Doe', displayName: 'Jane'},
-        {id: 3, name: 'Alice Smith', displayName: 'Alice'},
-        {id: 4, name: 'Bob Johnson', displayName: 'Bob'},
-        {id: 5, name: 'Charlie Brown', displayName: 'Charlie'},
-        {id: 6, name: 'Diana Prince', displayName: 'Diana'},
-        {id: 7, name: 'Ethan Hunt', displayName: 'Ethan'},
-        {id: 8, name: 'Fiona Gallagher', displayName: 'Fiona'},
-        {id: 9, name: 'George Miller', displayName: 'George'},
-        {id: 10, name: 'Hannah Baker', displayName: 'Hannah'}
-    ];
+import {mockUsers} from '../utils/constants.mjs' // import the mock users data from the constants file
+// mock users data in separate file
+
 //logging middleware logs it in the base  url
     // app.get('/', loggingMiddleware, (request, response) => {
     // response.status(201).send({msg: "Hello World!"});
@@ -85,11 +82,12 @@ const PORT = process.env.PORT || 3000;
     });
 
     // Server is running on port 3000
-// url 1
-// url 2
-// url 3
-// url 4
+        // url 1
+        // url 2
+        // url 3
+        // url 4
 
+// we have to remove this endpoint because we are using the users router
     app.get('/api/users', query('filter').
     isString()
     .notEmpty()
@@ -317,3 +315,8 @@ app.listen(PORT, () => {
 
 
 // ROUTERS IN EXPRESS: reusable pieces of code that can be used to handle routes
+
+// as application grows, we need more routes and we need to organize them
+// we can use routers to organize our routes
+
+// we can group user endpoints and product endpoints in different files
