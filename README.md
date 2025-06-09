@@ -16,6 +16,7 @@ This repository contains an Express.js application with detailed examples and ex
   - [Route Parameters](#route-parameters)
   - [Query Parameters](#query-parameters)
   - [Express Routers](#express-routers)
+- [Refactoring for Better Organization](#refactoring-for-better-organization)
 - [API Endpoints](#api-endpoints)
 - [Testing the API](#testing-the-api)
 - [Dependencies](#dependencies)
@@ -36,11 +37,15 @@ This project is a learning resource for Express.js, demonstrating how to create 
 ```
 express-tut/
 ├── src/
-│   ├── index.mjs         # Main application file
+│   ├── index.mjs         # Main application file (clean router implementation)
+│   ├── oldindex.mjs      # Original implementation before refactoring
 │   └── routes/
-│       └── users.mjs     # User routes module
+│       ├── index.mjs     # Combined router module
+│       ├── users.mjs     # User routes module
+│       └── products.mjs  # Product routes module
 ├── utils/
 │   ├── constants.mjs     # Mock data and constants
+│   ├── middlewares.mjs   # Middleware functions
 │   └── validationSchemas.mjs  # Data validation schemas
 ├── package.json          # Project dependencies and scripts
 └── README.md             # Project documentation
@@ -357,7 +362,9 @@ Example URL with query parameters: `/api/users?filter=name&value=J`
 
 ### Express Routers
 
-Express Routers allow you to modularize your routes and create reusable route handlers:
+Express Routers allow you to modularize your routes and create reusable route handlers. This is particularly useful as your application grows, helping you organize routes by resource or functionality.
+
+#### Basic Router Implementation
 
 ```javascript
 // src/routes/users.mjs
@@ -368,62 +375,204 @@ import { mockUsers } from "../../utils/constants.mjs";
 const router = Router();
 
 // Define routes on the router
-router.get('/api/users', (request, response) => {
-    // Route handler
+router.get('/api/users', query('filter')
+    .isString()
+    .notEmpty()
+    .withMessage('Filter must be a non-empty string')
+    .isLength({ min: 3, max: 10 })
+    .withMessage('Filter must be a string with length between 3 and 10 characters'),
+    (request, response) => {
+        // Route handler logic
+        const result = validationResult(request);
+        const { query: { filter, value } } = request;
+
+        if (filter && value) {
+            // Filter users based on query parameters
+        }
+
+        return response.send(mockUsers);
+    });
+
+export default router;
+```
+
+#### Resource-Specific Routers
+
+The project organizes routes by resource type:
+
+```javascript
+// src/routes/products.mjs
+import { Router } from "express";
+
+const router = Router();
+
+router.get('/api/products', (request, response) => {
+    response.send([{id:123, name: 'GTA VI'},
+                    {id:456, name: 'RDR3'}]);
 });
 
 export default router;
-
-// In main app (index.mjs)
-import usersRouter from './routes/users.mjs';
-app.use(usersRouter); // Use the router
 ```
+
+#### Combining Multiple Routers
+
+For better organization, we can import and use multiple routers in the main application:
+
+```javascript
+// src/routes/index.mjs
+import { Router } from "express";
+import usersRouter from "./users.mjs";
+import productsRouter from "./products.mjs";
+
+const router = Router();
+
+// Combine all routers into a single router
+router.use(usersRouter);
+router.use(productsRouter);
+
+export default router;
+```
+
+#### Using the Combined Router in the Main Application
+
+```javascript
+// src/index.mjs
+import express from 'express';
+import router from './routes/index.mjs';
+
+const app = express();
+app.use(express.json());
+
+// Use the combined router for all routes
+app.use(router);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+```
+
+This approach offers several benefits:
+- **Separation of concerns**: Each resource has its own dedicated file
+- **Code organization**: Routes are grouped logically by function
+- **Maintainability**: Easier to locate and modify specific routes
+- **Scalability**: New resources can be added without cluttering the main file
+- **Reusability**: Router modules can be reused across different applications
+
+## Refactoring for Better Organization
+
+The codebase has evolved from a monolithic approach (all routes in one file) to a modular structure. Here's how the code was refactored:
+
+### Before Refactoring (oldindex.mjs)
+
+In the original implementation, all routes and middleware were defined in a single file:
+
+```javascript
+// All routes in one file
+app.get('/api/users', (request, response) => { /* ... */ });
+app.get('/api/users/:id', (request, response) => { /* ... */ });
+app.post('/api/users', (request, response) => { /* ... */ });
+app.put('/api/users/:id', (request, response) => { /* ... */ });
+app.patch('/api/users/:id', (request, response) => { /* ... */ });
+app.delete('/api/users/:id', (request, response) => { /* ... */ });
+app.get('/api/products', (request, response) => { /* ... */ });
+```
+
+### After Refactoring
+
+#### 1. Middleware Extraction (utils/middlewares.mjs)
+
+Common middleware functions were moved to a dedicated file:
+
+```javascript
+// utils/middlewares.mjs
+export const loggingMiddleware = (request, response, next) => {
+    console.log(`${request.method} request to ${request.url}`);
+    next();
+};
+
+export const resolveIndexById = (request, response, next) => {
+    // ID validation logic
+    // ...
+    next();
+};
+```
+
+#### 2. Resource-Specific Routes (routes/users.mjs, routes/products.mjs)
+
+Routes were organized by resource type:
+
+```javascript
+// routes/users.mjs
+const router = Router();
+
+router.get('/api/users', /* ... */);
+router.post('/api/users', /* ... */);
+router.get('/api/users/:id', /* ... */);
+router.put('/api/users/:id', /* ... */);
+router.patch('/api/users/:id', /* ... */);
+router.delete('/api/users/:id', /* ... */);
+
+export default router;
+
+// routes/products.mjs
+const router = Router();
+
+router.get('/api/products', /* ... */);
+
+export default router;
+```
+
+#### 3. Router Combination (routes/index.mjs)
+
+A central router file combines all resource routers:
+
+```javascript
+// routes/index.mjs
+import { Router } from "express";
+import usersRouter from "./users.mjs";
+import productsRouter from "./products.mjs";
+
+const router = Router();
+router.use(usersRouter);
+router.use(productsRouter);
+
+export default router;
+```
+
+#### 4. Clean Main File (index.mjs)
+
+The main application file is now simplified:
+
+```javascript
+// index.mjs
+import express from 'express';
+import router from './routes/index.mjs';
+
+const app = express();
+app.use(express.json());
+app.use(router);
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+```
+
+This refactoring demonstrates how a growing Express application can be organized to maintain code quality and scalability.
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | / | Returns a "Hello World" message |
-| GET | /api/users | Returns all users (can be filtered) |
-| GET | /api/users/:id | Returns a specific user by ID |
-| GET | /api/products | Returns a list of products |
-| POST | /api/users | Creates a new user |
-| PUT | /api/users/:id | Completely updates a user |
-| PATCH | /api/users/:id | Partially updates a user |
-| DELETE | /api/users/:id | Deletes a user |
-
-## Testing the API
-
-You can test the API using tools like [Postman](https://www.postman.com/) or cURL:
-
-```bash
-# Get all users
-curl http://localhost:3000/api/users
-
-# Filter users by name containing "J"
-curl http://localhost:3000/api/users?filter=name&value=J
-
-# Get a specific user
-curl http://localhost:3000/api/users/1
-
-# Create a new user
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"name":"New User Name","displayName":"NewUser"}' \
-  http://localhost:3000/api/users
-
-# Update a user completely
-curl -X PUT -H "Content-Type: application/json" \
-  -d '{"name":"Updated User","displayName":"Updated"}' \
-  http://localhost:3000/api/users/1
-
-# Update a user partially
-curl -X PATCH -H "Content-Type: application/json" \
-  -d '{"displayName":"NewName"}' \
-  http://localhost:3000/api/users/1
-
-# Delete a user
-curl -X DELETE http://localhost:3000/api/users/1
-```
+| Method | Endpoint | Description | Location |
+|--------|----------|-------------|----------|
+| GET | / | Returns a "Hello World" message | routes/users.mjs |
+| GET | /api/users | Returns all users (can be filtered) | routes/users.mjs |
+| GET | /api/users/:id | Returns a specific user by ID | routes/users.mjs |
+| POST | /api/users | Creates a new user | routes/users.mjs |
+| PUT | /api/users/:id | Completely updates a user | routes/users.mjs |
+| PATCH | /api/users/:id | Partially updates a user | routes/users.mjs |
+| DELETE | /api/users/:id | Deletes a user | routes/users.mjs |
+| GET | /api/products | Returns a list of products | routes/products.mjs |
 
 ## Dependencies
 
