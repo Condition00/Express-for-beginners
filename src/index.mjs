@@ -11,11 +11,13 @@ import {createUserValidationSchema} from '../utils/validationSchemas.mjs'; // im
 
 // import router
 
-import usersRouter from './routes/users.mjs'; // import the users router
-import productsRouter from "./routes/products.mjs"; // import the products router
+// import usersRouter from './routes/users.mjs'; // import the users router
+// import productsRouter from "./routes/products.mjs"; // import the products router
 
-app.use(usersRouter);// use the users router for all routes that start with /api/users
-app.use(productsRouter); // use the products router for all routes that start with /api/products
+// using this combined router instead of importing each router separately
+import router from './routes/users.mjs';
+
+app.use(router);// use the users router for all routes that start with /api/users
 
 
 //middleware must be registered before the routes
