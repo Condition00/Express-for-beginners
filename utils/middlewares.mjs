@@ -1,3 +1,5 @@
+import {mockUsers} from "../utils/constants.mjs";
+
 export const loggingMiddleware = (request, response, next) => {
     console.log(`${request.method} request to ${request.url}`);
     next(); // call the next middleware or route handler

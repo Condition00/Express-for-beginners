@@ -130,3 +130,10 @@ app.listen(PORT, () => {
 // we can use routers to organize our routes
 
 // we can group user endpoints and product endpoints in different files
+
+
+
+
+
+//http cookies
+
