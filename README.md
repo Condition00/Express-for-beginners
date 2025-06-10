@@ -16,6 +16,7 @@ This repository contains an Express.js application with detailed examples and ex
   - [Route Parameters](#route-parameters)
   - [Query Parameters](#query-parameters)
   - [Express Routers](#express-routers)
+  - [HTTP Cookies](#http-cookies)
 - [Refactoring for Better Organization](#refactoring-for-better-organization)
 - [API Endpoints](#api-endpoints)
 - [Testing the API](#testing-the-api)
@@ -31,6 +32,7 @@ This project is a learning resource for Express.js, demonstrating how to create 
 - Validating request data
 - Handling route and query parameters
 - Organizing routes with Express Router
+- Working with HTTP cookies for state management
 
 ## Project Structure
 
@@ -459,6 +461,100 @@ This approach offers several benefits:
 - **Scalability**: New resources can be added without cluttering the main file
 - **Reusability**: Router modules can be reused across different applications
 
+### HTTP Cookies
+
+HTTP is stateless by default, meaning each request is independent of previous ones. Cookies help maintain state by storing data on the client side that the server can access in future requests.
+
+#### Setting Up Cookie Parser
+
+To work with cookies in Express, we use the `cookie-parser` middleware:
+
+```javascript
+// Install the dependency
+// npm install cookie-parser
+
+// Import the middleware
+import cookieParser from 'cookie-parser';
+
+// Use the middleware
+const app = express();
+app.use(cookieParser()); // Basic usage
+
+// For signed cookies (more secure)
+// app.use(cookieParser('mySecret')); // Pass a secret to sign cookies
+```
+
+The `cookie-parser` middleware parses the Cookie header in incoming requests and populates `request.cookies` with an object containing the cookie values.
+
+#### Setting Cookies
+
+Cookies are set in the response using the `response.cookie()` method:
+
+```javascript
+// Set a basic cookie that expires in 1 day
+app.get('/', (request, response) => {
+    response.cookie('sessionId', '12345', {
+        maxAge: 1000 * 60 * 60 * 24 // 1 day in milliseconds
+    });
+    response.status(201).send({msg: "Hello World!"});
+});
+```
+
+Cookie options include:
+- `maxAge`: Time in milliseconds until the cookie expires
+- `expires`: Specific date when the cookie expires
+- `httpOnly`: Makes the cookie inaccessible to client-side JavaScript
+- `secure`: Cookie only sent over HTTPS
+- `signed`: Signs the cookie for tampering detection (requires secret in cookie-parser)
+
+#### Accessing Cookies
+
+Once set, cookies are sent with every subsequent request to the same domain and can be accessed via `request.cookies`:
+
+```javascript
+router.get('/api/products', (request, response) => {
+    console.log(request.cookies); // Log all cookies
+
+    // Access a specific cookie
+    if (request.cookies.sessionId && request.cookies.sessionId === '12345') {
+        return response.send([{id:123, name: 'GTA VI'},
+                    {id:456, name: 'RDR3'}]);
+    } else {
+        return response.status(403).send({msg: "You need correct cookie"});
+    }
+});
+```
+
+#### Cookie-Based Authentication
+
+Our project demonstrates a simple cookie-based authentication mechanism:
+
+1. When a user visits the root route (`/`), we set a cookie:
+   ```javascript
+   app.get('/', (request, response) => {
+       response.cookie('sessionId', '12345', {
+           maxAge: 1000 * 60 * 60 * 24 // 1 day
+       });
+       response.status(201).send({msg: "Hello World!"});
+   });
+   ```
+
+2. Protected routes check for this cookie before providing access:
+   ```javascript
+   router.get('/api/products', (request, response) => {
+       if (request.cookies.sessionId && request.cookies.sessionId === '12345') {
+           // Authorized access
+           return response.send([{id:123, name: 'GTA VI'},
+                       {id:456, name: 'RDR3'}]);
+       } else {
+           // Unauthorized access
+           return response.status(403).send({msg: "You need correct cookie"});
+       }
+   });
+   ```
+
+This pattern forms the basis of more complex authentication systems, where the cookie might store a session ID that corresponds to more detailed user information stored on the server.
+
 ## Refactoring for Better Organization
 
 The codebase has evolved from a monolithic approach (all routes in one file) to a modular structure. Here's how the code was refactored:
@@ -563,21 +659,22 @@ This refactoring demonstrates how a growing Express application can be organized
 
 ## API Endpoints
 
-| Method | Endpoint | Description | Location |
-|--------|----------|-------------|----------|
-| GET | / | Returns a "Hello World" message | routes/users.mjs |
-| GET | /api/users | Returns all users (can be filtered) | routes/users.mjs |
-| GET | /api/users/:id | Returns a specific user by ID | routes/users.mjs |
-| POST | /api/users | Creates a new user | routes/users.mjs |
-| PUT | /api/users/:id | Completely updates a user | routes/users.mjs |
-| PATCH | /api/users/:id | Partially updates a user | routes/users.mjs |
-| DELETE | /api/users/:id | Deletes a user | routes/users.mjs |
-| GET | /api/products | Returns a list of products | routes/products.mjs |
+| Method | Endpoint | Description | Location | Notes |
+|--------|----------|-------------|----------|-------|
+| GET | / | Returns a "Hello World" message and sets a cookie | index.mjs | Sets sessionId cookie |
+| GET | /api/users | Returns all users (can be filtered) | routes/users.mjs | |
+| GET | /api/users/:id | Returns a specific user by ID | routes/users.mjs | |
+| POST | /api/users | Creates a new user | routes/users.mjs | |
+| PUT | /api/users/:id | Completely updates a user | routes/users.mjs | |
+| PATCH | /api/users/:id | Partially updates a user | routes/users.mjs | |
+| DELETE | /api/users/:id | Deletes a user | routes/users.mjs | |
+| GET | /api/products | Returns a list of products | routes/products.mjs | Requires sessionId cookie |
 
 ## Dependencies
 
 - **express**: Web framework for Node.js
 - **express-validator**: Middleware for validating request data
+- **cookie-parser**: Middleware for parsing cookies from request headers
 - **nodemon** (dev): Utility for auto-restarting the server during development
 
 To install dependencies:
