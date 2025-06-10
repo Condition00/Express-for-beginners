@@ -38,37 +38,6 @@ router.get('/api/users', query('filter').
         return response.send(mockUsers);
     });
 
-router.get('/',
-            //midlleware a will be called first and we will have option to call middleware b
-            //middleware a
-            // all the middleware functions are called in the order they are defined
-            (request, response, next) => {
-                console.log(`url 1`);
-                next(); // call the next middleware or route handler
-            },
-            (request, response, next) => {
-                console.log(`url 2`);
-                next(); // call the next middleware or route handler
-            },
-            (request, response, next) => {
-                console.log(`url 3`);
-                next(); // call the next middleware or route handler
-            },
-            (request, response, next) => {
-                console.log(`url 4`);
-                next(); // call the next middleware or route handler
-            },
-            //middleware b
-             (request, response) => {
-        response.status(201).send({msg: "Hello World!"});
-        });
-
-        // Server is running on port 3000
-            // url 1
-            // url 2
-            // url 3
-            // url 4
-
 router.post('/api/users',
         // putting both in an array
         // [ body('name').notEmpty().withMessage('Name is required').isLength({ min: 5, max: 30 }).withMessage('Name must be a string with length between 5 and 30 characters').isString().withMessage('Name must be a string'),
