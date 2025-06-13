@@ -17,6 +17,7 @@ This repository contains an Express.js application with detailed examples and ex
   - [Query Parameters](#query-parameters)
   - [Express Routers](#express-routers)
   - [HTTP Cookies](#http-cookies)
+  - [HTTP Sessions](#http-sessions)
 - [Refactoring for Better Organization](#refactoring-for-better-organization)
 - [API Endpoints](#api-endpoints)
 - [Testing the API](#testing-the-api)
@@ -33,6 +34,7 @@ This project is a learning resource for Express.js, demonstrating how to create 
 - Handling route and query parameters
 - Organizing routes with Express Router
 - Working with HTTP cookies for state management
+- Managing user sessions with express-session
 
 ## Project Structure
 
@@ -555,6 +557,182 @@ Our project demonstrates a simple cookie-based authentication mechanism:
 
 This pattern forms the basis of more complex authentication systems, where the cookie might store a session ID that corresponds to more detailed user information stored on the server.
 
+### HTTP Sessions
+
+Sessions build upon cookies to provide server-side state management. While cookies store data on the client side, sessions store data on the server side and use a session ID cookie to link clients to their server-side data.
+
+#### Session Setup
+
+Our application uses the `express-session` middleware to handle sessions:
+
+```javascript
+// Import express-session
+import session from 'express-session';
+
+// Configure and apply the session middleware
+app.use(session({
+    secret: 'zero',
+    saveUninitialized: false, // Don't save unmodified sessions (saves memory)
+    resave: false,            // Don't save session if not modified
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24 // 1 day
+    }
+}));
+```
+
+The configuration options:
+- `secret`: Used to sign the session ID cookie
+- `saveUninitialized`: When false, prevents storing empty sessions, reducing server storage
+- `resave`: When false, prevents saving the session if it wasn't modified
+- `cookie`: Options for the session ID cookie, including its lifespan
+
+#### Session vs. Cookies
+
+| Aspect | Cookies | Sessions |
+|--------|---------|----------|
+| Storage | Client-side (browser) | Server-side |
+| Security | Less secure (data stored on client) | More secure (only session ID stored on client) |
+| Size Limit | ~4KB | Limited only by server memory/storage |
+| Lifespan | Set by expiration time | Managed on server, can expire with inactivity |
+| Use Cases | Remembering preferences, tracking | User authentication, shopping carts, stateful apps |
+
+#### Working with Sessions
+
+The session object is attached to the request object and can be accessed and modified:
+
+```javascript
+// Reading session data
+app.get('/', (request, response) => {
+    console.log(request.session);      // The entire session object
+    console.log(request.sessionID);    // The session ID
+
+    // Modify session data
+    request.session.visited = true;
+
+    response.send({ msg: "Hello World!" });
+});
+```
+
+#### User Authentication with Sessions
+
+Our application demonstrates a basic authentication system using sessions:
+
+```javascript
+// Login route
+app.post('/api/auth', (request, response) => {
+    const { body: { name, password } } = request;
+
+    // Validate credentials
+    const findUser = mockUsers.find(user => user.name === name);
+    if (!findUser || findUser.password !== password) {
+        return response.status(401).send({ msg: 'Invalid credentials' });
+    }
+
+    // Store user in session
+    request.session.user = findUser;
+
+    return response.status(200).send({
+        msg: 'User authenticated successfully',
+        user: {
+            id: findUser.id,
+            name: findUser.name,
+            displayName: findUser.displayName
+        }
+    });
+});
+
+// Check authentication status
+app.get('/api/auth/status', (request, response) => {
+    if (request.session.user) {
+        return response.status(200).send({
+            msg: 'User is authenticated',
+            user: request.session.user
+        });
+    }
+    return response.status(401).send({ msg: 'User is not authenticated' });
+});
+```
+
+#### Accessing the Session Store
+
+The session middleware provides access to the session store, which can be useful for debugging or advanced use cases:
+
+```javascript
+app.get('/api/auth/status', (request, response) => {
+    request.sessionStore.get(request.session.id, (err, session) => {
+        if (err) {
+            console.error('Error retrieving session:', err);
+            return response.status(500).send({ msg: 'Internal server error' });
+        }
+        console.log('Session data:', session);
+    });
+
+    // Rest of handler...
+});
+```
+
+#### Implementing a Shopping Cart with Sessions
+
+Sessions are perfect for features like shopping carts, where state needs to be maintained across requests:
+
+```javascript
+// Add item to cart
+app.post('/api/cart', (request, response) => {
+    // Require authentication
+    if (!request.session.user) return response.sendStatus(401);
+
+    const { body: item } = request;
+    const { cart } = request.session;
+
+    // Add to existing cart or create new cart
+    if (cart) {
+        cart.push(item);
+    } else {
+        request.session.cart = [item];
+    }
+
+    return response.status(201).send(item);
+});
+
+// Get cart contents
+app.get('/api/cart', (request, response) => {
+    if (!request.session.user) return response.sendStatus(401);
+
+    return response.send(request.session.cart ?? []);
+});
+```
+
+#### Session Security Considerations
+
+- **Session Hijacking**: If a malicious actor obtains a session ID, they can impersonate the user. Mitigate with HTTPS and secure cookies.
+- **Session Fixation**: Regenerate session IDs after authentication to prevent attackers from setting known session IDs.
+- **Timeout**: Set appropriate session timeouts to limit the window of vulnerability.
+- **Session Store**: For production, use a dedicated session store (Redis, MongoDB, etc.) rather than the default memory store.
+
+#### Session Store Options
+
+For production applications, consider using a dedicated session store:
+
+```javascript
+// Example using connect-redis (requires additional setup)
+import session from 'express-session';
+import RedisStore from 'connect-redis';
+
+app.use(session({
+    store: new RedisStore(options),
+    secret: 'zero',
+    resave: false,
+    saveUninitialized: false
+}));
+```
+
+Popular session store options include:
+- `connect-redis`: Redis-based session store
+- `connect-mongo`: MongoDB-based session store
+- `session-file-store`: File system-based session store
+
+Each client has a unique session ID stored in a cookie, allowing the server to identify the client and access their session data for subsequent requests. This stateful approach enables features that would be impossible with cookies alone, particularly when dealing with sensitive data or complex state management.
+
 ## Refactoring for Better Organization
 
 The codebase has evolved from a monolithic approach (all routes in one file) to a modular structure. Here's how the code was refactored:
@@ -676,6 +854,7 @@ This refactoring demonstrates how a growing Express application can be organized
 - **express-validator**: Middleware for validating request data
 - **cookie-parser**: Middleware for parsing cookies from request headers
 - **nodemon** (dev): Utility for auto-restarting the server during development
+- **express-session**: Middleware for managing user sessions
 
 To install dependencies:
 
