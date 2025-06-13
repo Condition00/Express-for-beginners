@@ -1,4 +1,4 @@
-# Express.js Tutorial - Detailed Code Notes
+# Express.js Tutorial - Detailed Program Notes for Beginners
 
 This repository contains an Express.js application with detailed examples and explanations for beginners. The codebase demonstrates how to build a RESTful API with Express.js, covering essential concepts with practical implementation.
 
