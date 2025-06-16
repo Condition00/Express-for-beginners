@@ -18,6 +18,7 @@ This repository contains an Express.js application with detailed examples and ex
   - [Express Routers](#express-routers)
   - [HTTP Cookies](#http-cookies)
   - [HTTP Sessions](#http-sessions)
+  - [Authentication with Passport.js](#authentication-with-passportjs)
 - [Refactoring for Better Organization](#refactoring-for-better-organization)
 - [API Endpoints](#api-endpoints)
 - [Testing the API](#testing-the-api)
@@ -35,6 +36,7 @@ This project is a learning resource for Express.js, demonstrating how to create 
 - Organizing routes with Express Router
 - Working with HTTP cookies for state management
 - Managing user sessions with express-session
+- Implementing user authentication with Passport.js
 
 ## Project Structure
 
@@ -43,12 +45,14 @@ express-tut/
 ├── src/
 │   ├── index.mjs         # Main application file (clean router implementation)
 │   ├── oldindex.mjs      # Original implementation before refactoring
+│   ├── strategies/
+│   │   └── local-strategy.mjs # Passport.js local authentication strategy
 │   └── routes/
 │       ├── index.mjs     # Combined router module
 │       ├── users.mjs     # User routes module
 │       └── products.mjs  # Product routes module
 ├── utils/
-│   ├── constants.mjs     # Mock data and constants
+│   ├── constants.mjs     # Mock data and constants (includes mock users)
 │   ├── middlewares.mjs   # Middleware functions
 │   └── validationSchemas.mjs  # Data validation schemas
 ├── package.json          # Project dependencies and scripts
@@ -847,6 +851,11 @@ This refactoring demonstrates how a growing Express application can be organized
 | PATCH | /api/users/:id | Partially updates a user | routes/users.mjs | |
 | DELETE | /api/users/:id | Deletes a user | routes/users.mjs | |
 | GET | /api/products | Returns a list of products | routes/products.mjs | Requires sessionId cookie |
+| POST | /api/auth | Authenticates a user | index.mjs | Uses Passport local strategy |
+| GET | /api/auth/status | Returns authentication status | index.mjs | Returns user data if authenticated |
+| POST | /api/auth/logout | Logs out the current user | index.mjs | Terminates the session |
+| POST | /api/cart | Adds an item to the user's cart | index.mjs | Requires authentication |
+| GET | /api/cart | Returns the user's cart | index.mjs | Requires authentication |
 
 ## Dependencies
 
@@ -855,6 +864,8 @@ This refactoring demonstrates how a growing Express application can be organized
 - **cookie-parser**: Middleware for parsing cookies from request headers
 - **nodemon** (dev): Utility for auto-restarting the server during development
 - **express-session**: Middleware for managing user sessions
+- **passport**: Authentication middleware
+- **passport-local**: Local authentication strategy for Passport
 
 To install dependencies:
 
@@ -865,3 +876,176 @@ npm install
 ---
 
 This Express.js tutorial project demonstrates fundamental concepts for building RESTful APIs. The codebase is heavily commented to explain each concept clearly, making it perfect for beginners learning Express.js.
+
+## Authentication with Passport.js
+
+Our application implements user authentication using Passport.js, a popular authentication middleware for Node.js. Passport simplifies the process of handling authentication by providing a standardized way to authenticate requests.
+
+#### Setting Up Passport.js
+
+```javascript
+// Install the dependencies
+// npm install passport passport-local
+
+// Import passport and the local strategy
+import passport from "passport";
+import { Strategy } from "passport-local";
+import { mockUsers } from "../utils/constants.mjs";
+
+// Initialize passport middleware after session setup
+app.use(session({
+    secret: 'zero',
+    saveUninitialized: false,
+    resave: false,
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24 // 1 day
+    }
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+```
+
+#### Local Authentication Strategy
+
+We implement a local authentication strategy that validates username/password credentials against our mock user database:
+
+```javascript
+// src/strategies/local-strategy.mjs
+passport.use(new Strategy({
+    usernameField: 'name',     // Use 'name' field from request body as username
+    passwordField: 'password'  // Use 'password' field from request body
+}, (name, password, done) => {
+    console.log(`name: ${name}, password: ${password}`);
+    try {
+        // Find user in our mock database
+        const findUser = mockUsers.find(user => user.name === name);
+        if (!findUser) throw new Error('User not found');
+        if (findUser.password !== password) throw new Error('Invalid password');
+
+        // Authentication successful - pass user object to next middleware
+        done(null, findUser);
+    }
+    catch (err) {
+        // Authentication failed - pass error to next middleware
+        done(err, null);
+    }
+}));
+```
+
+#### Session Serialization & Deserialization
+
+For persistent authentication across requests, Passport needs to serialize and deserialize user objects to and from the session:
+
+```javascript
+// Serialize: Store user ID in session
+passport.serializeUser((user, done) => {
+    console.log('Serializing user:', user);
+    done(null, user.id); // Only store user.id in the session
+});
+
+// Deserialize: Retrieve full user object using ID from session
+passport.deserializeUser((id, done) => {
+    console.log(`Deserializing user with id: ${id}`);
+    try {
+        // Find user by ID in our mock database
+        const findUser = mockUsers.find(user => user.id === id);
+        if (!findUser) throw new Error('User not found');
+
+        // Pass full user object to request.user
+        done(null, findUser);
+    } catch(err) {
+        done(err, null);
+    }
+});
+```
+
+#### Authentication Flow
+
+1. **Login Endpoint**:
+   ```javascript
+   app.post('/api/auth', passport.authenticate("local"), (request, response) => {
+       // If this function is called, authentication was successful
+       // request.user contains the authenticated user
+       response.status(200).send({
+           message: 'Authentication successful',
+           user: {
+               id: request.user.id,
+               name: request.user.name,
+               displayName: request.user.displayName
+           }
+       });
+   });
+   ```
+
+2. **Authentication Status Endpoint**:
+   ```javascript
+   app.get('/api/auth/status', (request, response) => {
+       console.log(`Inside /auth/status endpoint`);
+       console.log(request.user); // Passport adds user to request if authenticated
+
+       // Return user if authenticated, otherwise return 401 Unauthorized
+       return request.user
+           ? response.send(request.user)
+           : response.sendStatus(401);
+   });
+   ```
+
+3. **Logout Endpoint**:
+   ```javascript
+   app.post('/api/auth/logout', (request, response) => {
+       if (!request.user) return response.sendStatus(401);
+
+       request.logout((err) => {
+           if (err) return response.sendStatus(400);
+           response.sendStatus(200);
+       });
+   });
+   ```
+
+#### How Passport Authentication Works
+
+1. **Login Request**: When a user submits credentials to `/api/auth`, the `passport.authenticate('local')` middleware intercepts the request.
+
+2. **Strategy Execution**: Passport executes our local strategy function, which validates the credentials.
+
+3. **Serialization**: If authentication succeeds, the user object is passed to `serializeUser()`, which determines what data is stored in the session.
+
+4. **Session Storage**: Only the user ID is stored in the session for security and efficiency.
+
+5. **Subsequent Requests**: For each subsequent authenticated request:
+   - Passport extracts the user ID from the session
+   - Calls `deserializeUser()` to convert the ID back into a user object
+   - Attaches the user object to the request as `request.user`
+
+6. **Authenticated Routes**: Routes can check `request.user` or use the `request.isAuthenticated()` method to verify authentication.
+
+7. **Logout**: When a user logs out, `request.logout()` is called, which removes the user from the session.
+
+#### Authentication Helpers
+
+Passport provides several helper functions for checking authentication status:
+
+```javascript
+// Check if user is authenticated
+const isAuthenticated = (req, res, next) => {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    res.status(401).send({ message: 'Not authenticated' });
+};
+
+// Protect routes that require authentication
+app.get('/api/protected', isAuthenticated, (req, res) => {
+    res.send({ message: 'This is a protected route', user: req.user });
+});
+```
+
+#### Security Considerations
+
+- **Password Storage**: In a production environment, never store plain-text passwords. Use bcrypt or another hashing algorithm.
+- **HTTPS**: Always use HTTPS in production to protect session cookies from being intercepted.
+- **Cookie Security**: Set appropriate cookie security options (httpOnly, secure, sameSite).
+- **Rate Limiting**: Implement rate limiting on authentication endpoints to prevent brute force attacks.
+- **Environment Variables**: Store sensitive information like session secrets in environment variables.
+
+This implementation provides a solid foundation for authentication in an Express.js application, demonstrating both the technical setup and best practices for securing user data.
