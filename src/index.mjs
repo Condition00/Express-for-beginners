@@ -3,9 +3,11 @@ import cookieParser from 'cookie-parser'; // import cookie-parser to handle cook
 import meow from './routes/index.mjs';
 import { mockUsers } from '../utils/constants.mjs';
 import session from 'express-session'; // import express-session to handle sessions
-import passport from 'passport'; // import passport for authentication
+//import passport from 'passport'; // import passport for authentication
 // passport will take care of mapping the session id to the user in our application
 
+import passport from "./strategies/local-strategy.mjs"; // import the local strategy for passport
+// this will register the local strategy with passport, so we can use it in our application
 
 
 const app = express();
@@ -114,43 +116,43 @@ app.get('/', (request, response) => {
 
 // fake authentication system - how we can map a single session id to a user in our application
 
-app.post('/api/auth', (request, response) => {
-    const {body: {name, password},
-    } = request;
-    const findUser = mockUsers.find(user => user.name === name);
-    if (!findUser || findUser.password !== password) {
-        return response.status(401).send({msg: 'Invalid credentials'});
-    }
-    // main purpose of this endpoint is to modify the session object because we want to stop generating new session ids, we want generate a session id only once when the user logs set the cookie and the send the cookie back to the client or browser. so when the client sends another request, the session id will be the same and we can use it to identify the user.
+        // app.post('/api/auth', (request, response) => {
+        //     const {body: {name, password},
+        //     } = request;
+        //     const findUser = mockUsers.find(user => user.name === name);
+        //     if (!findUser || findUser.password !== password) {
+        //         return response.status(401).send({msg: 'Invalid credentials'});
+        //     }
+        //     // main purpose of this endpoint is to modify the session object because we want to stop generating new session ids, we want generate a session id only once when the user logs set the cookie and the send the cookie back to the client or browser. so when the client sends another request, the session id will be the same and we can use it to identify the user.
 
-    request.session.user = findUser; // store the user in the session object
-    return response.status(200).send({
-        msg: 'User authenticated successfully',
-        user: {
-            id: findUser.id,
-            name: findUser.name,
-            displayName: findUser.displayName
-        }
-    });
-});
+        //     request.session.user = findUser; // store the user in the session object
+        //     return response.status(200).send({
+        //         msg: 'User authenticated successfully',
+        //         user: {
+        //             id: findUser.id,
+        //             name: findUser.name,
+        //             displayName: findUser.displayName
+        //         }
+        //     });
+        // });
 
-app.get('/api/auth/status', (request, response) => {
-    request.sessionStore.get(request.session.id, (err, session) => {
-        if (err) {
-            console.error('Error retrieving session:', err);
-            return response.status(500).send({msg: 'Internal server error'});
-        }
-        console.log('Session data:', session);
-    });
-    // check if the user is authenticated by checking if the user is present in the session object
-    if (request.session.user) {
-        return response.status(200).send({
-            msg: 'User is authenticated',
-            user: request.session.user // display the user information stored in the session
-        });
-    }
-    return response.status(401).send({msg: 'User is not authenticated'});
-});
+        // app.get('/api/auth/status', (request, response) => {
+        //     request.sessionStore.get(request.session.id, (err, session) => {
+        //         if (err) {
+        //             console.error('Error retrieving session:', err);
+        //             return response.status(500).send({msg: 'Internal server error'});
+        //         }
+        //         console.log('Session data:', session);
+        //     });
+        //     // check if the user is authenticated by checking if the user is present in the session object
+        //     if (request.session.user) {
+        //         return response.status(200).send({
+        //             msg: 'User is authenticated',
+        //             user: request.session.user // display the user information stored in the session
+        //         });
+        //     }
+        //     return response.status(401).send({msg: 'User is not authenticated'});
+        // });
 
 // expample cart system so user can add items only if they are authenticated
 
@@ -183,3 +185,34 @@ app.get('/api/cart', (request, response) => {
 
 
 //passportjs
+
+
+app.post('/api/auth', passport.authenticate("local"),
+ (request, response) => {
+    // we were not doing anything here so it terminates after serializing the user
+    response.sendStatus(200);
+ });
+
+
+ app.get('/api/auth/status', (request, response) => {
+    console.log(`Inside /auth/status endpoint`);
+    console.log(request.user); // request.user is the user object that was serialized in the local strategy
+    return request.user ? response.send(request.user) : response.sendStatus(401); // ternary operator to check if the user is authenticated
+    // if the user is authenticated, return the user object, otherwise return a 401 status code
+
+
+});
+
+
+//logout endpoint
+
+app.post('/api/auth/logout', (request, response) => {
+    if(!request.user) return response.sendStatus(401);
+
+    request.logout((err) => {
+        if(err) return response.sendStatus(400);
+        response.sendStatus(200); // send a 200 status code to indicate that the user has been logged out successfully
+    });
+});
+
+//even if we still have the cookie, its invalid now because the session has been destroyed.
