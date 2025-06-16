@@ -3,6 +3,11 @@ import cookieParser from 'cookie-parser'; // import cookie-parser to handle cook
 import meow from './routes/index.mjs';
 import { mockUsers } from '../utils/constants.mjs';
 import session from 'express-session'; // import express-session to handle sessions
+import passport from 'passport'; // import passport for authentication
+// passport will take care of mapping the session id to the user in our application
+
+
+
 const app = express();
 
 app.use(express.json())
@@ -15,6 +20,12 @@ app.use(session({
         maxAge: 1000 * 60 * 60 * 24 // 1 day
     }
 }));
+
+app.use(passport.initialize()); // initialize passport middleware
+app.use(passport.session()); // use passport session middleware to handle sessions
+// actually take care of attaching a dynamic user property to the request object, which will be used to identify the user in our application
+
+
 
 // modifing session data object
 
@@ -168,3 +179,7 @@ app.get('/api/cart', (request, response) => {
 
 // each client has a unique session id, which is stored in a cookie on the client side
 // so each user has his own unique session id, which is used to identify the user and store their information on the server side
+
+
+
+//passportjs
